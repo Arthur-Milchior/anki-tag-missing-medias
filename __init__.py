@@ -17,7 +17,7 @@ def on_finished(self: MediaChecker, fut: Future) -> None:
         col = mw.col
         col.tags.remove(TAGNAME)
         total = mw.col.note_count()
-        progress_step = max(100, min(1000, total / 100))
+        progress_step = max(100, min(1000, total // 100))
         count = 0
         tagged_nids = []
         want_cancel = False
