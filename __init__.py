@@ -32,10 +32,10 @@ def on_finished(self: MediaChecker, fut: Future) -> None:
     CollectionOp(parent=mw, op=task).success(on_success).run_in_background()
 
 
-def on_check(self: MediaChecker) -> None:
+def check(self: MediaChecker) -> None:
     self.progress_dialog = self.mw.progress.start()
     self._set_progress_enabled(True)
     self.mw.taskman.run_in_background(self._check, lambda fut: on_finished(self, fut))
 
 
-MediaChecker.check = on_check
+MediaChecker.check = check
