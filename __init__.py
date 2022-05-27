@@ -2,34 +2,64 @@ from concurrent.futures import Future
 
 from aqt import mw
 from aqt.mediacheck import MediaChecker
-from aqt.utils import tooltip
-from aqt.operations import CollectionOp
-from anki.collection import Collection, OpChangesWithCount
+from aqt.utils import tooltip, showWarning
 
+ADDON_NAME = "Tag Notes with Missing Media"
 TAGNAME = "MissingMedia"
 
 
 def on_finished(self: MediaChecker, fut: Future) -> None:
     self._on_finished(fut)
     output = fut.result()
-    missing = output.missing
+    missing = set(output.missing)
 
-    def task(col: Collection):
+    def task() -> int:
+        col = mw.col
         col.tags.remove(TAGNAME)
-        nids = []
-        for filename in missing:
-            for nid, mid, flds in col.db.execute("select id, mid, flds from notes"):
-                media_refs = col.media.filesInStr(mid, flds)
-                if filename in media_refs:
-                    nids.append(nid)
-        col.tags.bulkAdd(nids, TAGNAME)
-        ret = OpChangesWithCount(count=len(nids))
-        return ret
+        total = mw.col.note_count()
+        progress_step = max(100, min(1000, total / 100))
+        count = 0
+        tagged_nids = []
+        want_cancel = False
+        for nid, mid, flds in col.db.execute("select id, mid, flds from notes"):
+            if want_cancel:
+                break
+            media_refs = set(col.media.filesInStr(mid, flds))
+            if missing & media_refs:
+                tagged_nids.append(nid)
+            if count % progress_step == 0:
 
-    def on_success(changes: OpChangesWithCount):
-        tooltip(f"Tagged {changes.count} notes with {TAGNAME}")
+                def update_cancel() -> None:
+                    nonlocal want_cancel
+                    want_cancel = mw.progress.want_cancel()
 
-    CollectionOp(parent=mw, op=task).success(on_success).run_in_background()
+                mw.taskman.run_on_main(update_cancel)
+                mw.taskman.run_on_main(
+                    lambda: mw.progress.update(
+                        f"Processed {count+1} out of {total} notes.",
+                        value=count + 1,
+                        max=total,
+                    )
+                )
+            count += 1
+            if want_cancel:
+                break
+
+        col.tags.bulkAdd(tagged_nids, TAGNAME)
+        return len(tagged_nids)
+
+    def on_done(fut: Future):
+        try:
+            count = fut.result()
+            tooltip(f"Tagged {count} notes with {TAGNAME}")
+        except Exception as exc:
+            showWarning(str(exc), title=ADDON_NAME)
+        finally:
+            mw.progress.finish()
+
+    mw.progress.start(min=0)
+    mw.progress.set_title(ADDON_NAME)
+    mw.taskman.run_in_background(task, on_done=on_done)
 
 
 def check(self: MediaChecker) -> None:
