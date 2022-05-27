@@ -1,7 +1,10 @@
 from concurrent.futures import Future
-from aqt.mediacheck import MediaChecker
+
 from aqt import mw
+from aqt.mediacheck import MediaChecker
 from aqt.utils import tooltip
+from aqt.operations import CollectionOp
+from anki.collection import Collection, OpChangesWithCount
 
 TAGNAME = "MissingMedia"
 
@@ -10,15 +13,23 @@ def on_finished(self: MediaChecker, fut: Future) -> None:
     self._on_finished(fut)
     output = fut.result()
     missing = output.missing
-    mw.col.tags.remove(TAGNAME)
-    nids = []
-    for filename in missing:
-        for nid, mid, flds in mw.col.db.execute("select id, mid, flds from notes"):
-            media_refs = mw.col.media.filesInStr(mid, flds)
-            if filename in media_refs:
-                nids.append(nid)
-    mw.col.tags.bulkAdd(nids, TAGNAME)
-    tooltip(f"Tagged {len(nids)} notes with {TAGNAME}")
+
+    def task(col: Collection):
+        col.tags.remove(TAGNAME)
+        nids = []
+        for filename in missing:
+            for nid, mid, flds in col.db.execute("select id, mid, flds from notes"):
+                media_refs = col.media.filesInStr(mid, flds)
+                if filename in media_refs:
+                    nids.append(nid)
+        col.tags.bulkAdd(nids, TAGNAME)
+        ret = OpChangesWithCount(count=len(nids))
+        return ret
+
+    def on_success(changes: OpChangesWithCount):
+        tooltip(f"Tagged {changes.count} notes with {TAGNAME}")
+
+    CollectionOp(parent=mw, op=task).success(on_success).run_in_background()
 
 
 def on_check(self: MediaChecker) -> None:
