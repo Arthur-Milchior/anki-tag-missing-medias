@@ -51,7 +51,7 @@ def on_finished(self: MediaChecker, fut: Future) -> None:
     def on_done(fut: Future):
         try:
             count = fut.result()
-            tooltip(f"Tagged {count} notes with {TAGNAME}")
+            tooltip(f"Tagged {count} notes with {TAGNAME}", parent=mw)
         except Exception as exc:
             showWarning(str(exc), title=ADDON_NAME)
         finally:
