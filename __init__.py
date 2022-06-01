@@ -1,5 +1,6 @@
 from concurrent.futures import Future
 
+import aqt
 from aqt import mw
 from aqt.mediacheck import MediaChecker
 from aqt.utils import tooltip, showWarning
@@ -52,6 +53,7 @@ def on_finished(self: MediaChecker, fut: Future) -> None:
         try:
             count = fut.result()
             tooltip(f"Tagged {count} notes with {TAGNAME}", parent=mw)
+            aqt.dialogs.open("Browser", mw=mw, search=(f"tag:{TAGNAME}",))
         except Exception as exc:
             showWarning(str(exc), title=ADDON_NAME)
         finally:
