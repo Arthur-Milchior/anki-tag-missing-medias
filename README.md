@@ -13,7 +13,7 @@ check media also removes the tag «MissingMedia» from notes which does
 not have a missing media. So that if you have corrected a note, it
 does not appear anymore when you search for notes with Missing Media.
 ## Internal
-It totally redefines the method `anki.media.MediaManager.check`. So
+It totally redefines the method `aqt.mediacheck.MediaChecker.check`. So
 this add-on is incompatible with any other add-on changing this
 method.
 
